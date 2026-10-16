@@ -2,733 +2,1287 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Neon Blaster</title>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stunning 3D Chess Game - AAA Staunton Edition</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Three.js r128 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Chess.js v0.10.3 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #050510;
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #05070d;
+            color: #f8fafc;
             overflow: hidden;
-            font-family: 'Press Start 2P', cursive;
-            touch-action: none; /* Prevent scroll on touch */
+            user-select: none;
         }
-
-        #game-container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        canvas {
+        #webgl-container {
+            width: 100vw;
+            height: 100vh;
             display: block;
-            width: 100%;
-            height: 100%;
+            touch-action: none;
         }
-
-        #ui-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none; /* Let clicks pass through to canvas where needed */
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+        .glass-panel {
+            background: rgba(10, 15, 26, 0.88);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85);
         }
-
-        #score-display {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: #0ff;
-            font-size: 16px;
-            text-shadow: 0 0 10px #0ff;
-            z-index: 10;
+        ::-webkit-scrollbar {
+            width: 5px;
         }
-
-        .screen {
-            background: rgba(0, 0, 0, 0.85);
-            padding: 40px;
-            border: 2px solid #f0f;
-            border-radius: 10px;
-            text-align: center;
-            pointer-events: auto; /* Enable clicks on screens */
-            box-shadow: 0 0 20px #f0f inset, 0 0 20px #f0f;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
+        ::-webkit-scrollbar-track {
+            background: rgba(10, 15, 26, 0.5);
         }
-
-        .hidden {
-            display: none !important;
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
         }
-
-        h1 {
-            color: #f0f;
-            margin: 0 0 20px 0;
-            font-size: 32px;
-            text-shadow: 0 0 10px #f0f, 0 0 20px #f0f;
-            line-height: 1.5;
+        .animate-subtle-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
-
-        p {
-            color: #fff;
-            font-size: 14px;
-            margin-bottom: 20px;
-            line-height: 1.5;
-        }
-
-        .score-highlight {
-            color: #ff0;
-            font-size: 18px;
-            text-shadow: 0 0 10px #ff0;
-        }
-
-        button {
-            background: transparent;
-            color: #0f0;
-            border: 2px solid #0f0;
-            padding: 15px 20px;
-            font-family: inherit;
-            font-size: 16px;
-            cursor: pointer;
-            text-transform: uppercase;
-            transition: all 0.2s;
-            box-shadow: 0 0 10px #0f0 inset;
-            outline: none;
-        }
-
-        button:hover, button:active {
-            background: #0f0;
-            color: #000;
-            box-shadow: 0 0 20px #0f0;
-        }
-
-        .controls-hint {
-            font-size: 10px;
-            color: #888;
-            margin-top: 10px;
-        }
-
-        @media (max-width: 600px) {
-            h1 { font-size: 24px; }
-            button { font-size: 12px; padding: 10px 15px; }
-            #score-display { font-size: 12px; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
         }
     </style>
 </head>
-<body>
+<body class="relative h-screen w-screen flex">
 
-    <div id="game-container">
-        <canvas id="gameCanvas"></canvas>
-        <div id="ui-layer">
-            <div id="score-display">SCORE: <span id="score-value">0</span></div>
-            
-            <div id="start-screen" class="screen">
-                <h1>NEON<br>BLASTER</h1>
-                <p>Destroy the geometry.<br>Survive the neon void.</p>
-                <button id="start-btn">INITIALIZE</button>
-                <div class="controls-hint">Desktop: A/D or Arrows to move. Space to auto-fire.<br>Mobile: Touch and drag to move. Auto-fires.</div>
+    <!-- 3D Canvas Viewport Container -->
+    <div id="webgl-container" class="absolute inset-0 z-0"></div>
+
+    <!-- Live Centipawn Evaluation Bar -->
+    <div class="absolute left-4 top-24 bottom-24 w-3.5 glass-panel rounded-full z-10 hidden sm:flex flex-col overflow-hidden p-0.5 shadow-2xl">
+        <div id="eval-bar-black" class="w-full bg-slate-950 transition-all duration-500 ease-out" style="height: 50%;"></div>
+        <div id="eval-bar-white" class="w-full bg-amber-100 transition-all duration-500 ease-out flex-1"></div>
+        <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 text-[9px] text-center font-black text-slate-900 bg-white/90 py-0.5 shadow-sm" id="eval-text">0.0</div>
+    </div>
+
+    <!-- Main HUD Overlay UI -->
+    <div class="relative z-10 flex flex-col justify-between pointer-events-none w-full h-full p-4 lg:p-6">
+        
+        <!-- Top Bar Header -->
+        <header class="flex flex-col xl:flex-row justify-between items-center gap-3 pointer-events-auto">
+            <div class="glass-panel px-5 py-3 rounded-2xl flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
+                    <i class="fa-solid fa-chess-king text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-black text-lg leading-tight tracking-wide text-white flex items-center gap-2">
+                        Grandmaster 3D 
+                        <span class="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20 uppercase tracking-widest">AAA Staunton</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Stockfish AI • Carrara Marble & Ebony Obsidian</p>
+                </div>
             </div>
 
-            <div id="game-over-screen" class="screen hidden">
-                <h1>SYSTEM FAILURE</h1>
-                <p>FINAL SCORE<br><br><span id="final-score" class="score-highlight">0</span></p>
-                <button id="restart-btn">REBOOT SYSTEM</button>
+            <!-- Turn & Game Status Indicator -->
+            <div id="status-banner" class="glass-panel px-6 py-3 rounded-2xl flex items-center gap-4">
+                <div id="turn-indicator" class="w-4 h-4 rounded-full bg-amber-400 animate-pulse shadow-[0_0_15px_rgba(251,191,36,0.9)]"></div>
+                <div>
+                    <span id="status-text" class="font-bold text-sm text-slate-100">White's Turn</span>
+                    <div id="check-alert" class="text-xs text-rose-400 font-bold hidden animate-bounce">Check in effect!</div>
+                </div>
+                <div id="engine-status" class="text-[10px] bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-3 py-1 rounded-lg font-mono flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> Stockfish Ready
+                </div>
+            </div>
+
+            <!-- Game Actions Group -->
+            <div class="glass-panel p-2 rounded-2xl flex flex-wrap items-center gap-2">
+                <button onclick="window.gameApp.openSetupModal()" title="New Setup" class="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition active:scale-95 flex items-center gap-2 text-xs shadow-lg shadow-amber-500/20">
+                    <i class="fa-solid fa-plus-circle"></i>
+                    <span>New Game</span>
+                </button>
+                <button onclick="window.gameApp.requestEngineHint()" title="Get AI Hint" class="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 font-semibold transition active:scale-95 flex items-center gap-2 text-xs">
+                    <i class="fa-solid fa-lightbulb"></i>
+                    <span class="hidden sm:inline">Hint</span>
+                </button>
+                <button onclick="window.gameApp.undoMove()" title="Undo Move" class="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition active:scale-95 flex items-center gap-2 text-xs">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span class="hidden sm:inline">Undo</span>
+                </button>
+                <button onclick="window.gameApp.flipBoard()" title="Rotate Board View" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition active:scale-95 text-xs">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Center Viewport & Move Log Sidebar -->
+        <main class="flex-1 flex justify-between items-end lg:items-center pointer-events-none pb-16 lg:pb-0">
+            <!-- Camera Presets Floating Toolbar -->
+            <div class="glass-panel p-2 rounded-2xl pointer-events-auto flex flex-col gap-2 shadow-2xl hidden sm:flex">
+                <span class="text-[9px] text-slate-400 font-black uppercase tracking-wider px-2 text-center">Camera</span>
+                <button onclick="window.gameApp.setCameraPreset('white')" title="White View" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition active:scale-95 text-xs flex items-center justify-center">
+                    <i class="fa-solid fa-chess-pawn"></i>
+                </button>
+                <button onclick="window.gameApp.setCameraPreset('black')" title="Black View" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition active:scale-95 text-xs flex items-center justify-center">
+                    <i class="fa-solid fa-chess-rook"></i>
+                </button>
+                <button onclick="window.gameApp.setCameraPreset('top')" title="Top Overhead" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition active:scale-95 text-xs flex items-center justify-center">
+                    <i class="fa-solid fa-video"></i>
+                </button>
+                <button onclick="window.gameApp.setCameraPreset('cinematic')" title="Cinematic Angle" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition active:scale-95 text-xs flex items-center justify-center">
+                    <i class="fa-solid fa-film"></i>
+                </button>
+            </div>
+
+            <!-- Right Move History & Captured Material Sidebar -->
+            <aside class="glass-panel w-full lg:w-80 max-h-72 lg:max-h-[calc(100vh-9rem)] rounded-2xl p-4 pointer-events-auto flex flex-col shadow-2xl ml-auto">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-700/60 mb-3">
+                    <h2 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+                        <i class="fa-solid fa-list-ol text-amber-400"></i> Move History
+                    </h2>
+                    <span id="move-count" class="text-xs bg-slate-800 text-slate-400 px-2.5 py-1 rounded-full font-mono font-medium">0 moves</span>
+                </div>
+
+                <!-- Captured Pieces Racks -->
+                <div class="grid grid-cols-2 gap-2 mb-3 text-xs">
+                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">White Captures</span>
+                            <span id="advantage-white" class="text-[10px] font-black text-amber-400"></span>
+                        </div>
+                        <div id="captured-white" class="flex flex-wrap gap-1 min-h-[22px] text-amber-200 text-sm"></div>
+                    </div>
+                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Black Captures</span>
+                            <span id="advantage-black" class="text-[10px] font-black text-slate-400"></span>
+                        </div>
+                        <div id="captured-black" class="flex flex-wrap gap-1 min-h-[22px] text-slate-400 text-sm"></div>
+                    </div>
+                </div>
+
+                <!-- Scrollable Notation Log -->
+                <div id="move-history" class="flex-1 overflow-y-auto space-y-1 pr-1 text-xs font-mono">
+                    <div class="text-slate-500 italic text-center py-6">Game ready. Click pieces to move!</div>
+                </div>
+            </aside>
+        </main>
+
+        <!-- Footer Instructions -->
+        <footer class="flex justify-center items-center pointer-events-auto">
+            <div class="glass-panel px-4 py-2 rounded-xl text-xs text-slate-300 flex items-center gap-4">
+                <span><i class="fa-solid fa-hand-pointer text-amber-400 mr-1.5"></i> Left-click square/piece</span>
+                <span>•</span>
+                <span><i class="fa-solid fa-cube text-amber-400 mr-1.5"></i> Drag to orbit 3D view</span>
+                <span>•</span>
+                <span><i class="fa-solid fa-robot text-emerald-400 mr-1.5"></i> Stockfish Active</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- New Game / Side Setup Modal -->
+    <div id="setup-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="glass-panel max-w-md w-full p-6 rounded-3xl text-left shadow-2xl border border-slate-700/80">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-sliders"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-black text-white">Match Setup</h3>
+                    <p class="text-xs text-slate-400">Configure game options & Stockfish side</p>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <!-- Mode Selection -->
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">Game Mode</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" onclick="window.gameApp.selectSetupMode('pve')" id="mode-pve" class="p-3 rounded-xl border border-amber-500/50 bg-amber-500/10 text-amber-300 font-bold text-xs flex flex-col items-center gap-1.5 transition">
+                            <i class="fa-solid fa-user-robot text-lg"></i> vs AI
+                        </button>
+                        <button type="button" onclick="window.gameApp.selectSetupMode('pvp')" id="mode-pvp" class="p-3 rounded-xl border border-slate-700 bg-slate-900 text-slate-400 font-bold text-xs flex flex-col items-center gap-1.5 transition">
+                            <i class="fa-solid fa-user-group text-lg"></i> Local 2P
+                        </button>
+                        <button type="button" onclick="window.gameApp.selectSetupMode('eve')" id="mode-eve" class="p-3 rounded-xl border border-slate-700 bg-slate-900 text-slate-400 font-bold text-xs flex flex-col items-center gap-1.5 transition">
+                            <i class="fa-solid fa-robot text-lg"></i> AI vs AI
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Side Selection (Play as White / Play as Black) -->
+                <div id="side-select-group">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">Your Side</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button type="button" onclick="window.gameApp.selectSetupColor('w')" id="color-w" class="p-3.5 rounded-xl border border-amber-500/80 bg-amber-500/20 text-amber-200 font-bold text-xs flex items-center justify-center gap-2 transition">
+                            <i class="fa-solid fa-chess-pawn text-lg text-amber-300"></i> Play as White
+                        </button>
+                        <button type="button" onclick="window.gameApp.selectSetupColor('b')" id="color-b" class="p-3.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-400 font-bold text-xs flex items-center justify-center gap-2 transition">
+                            <i class="fa-solid fa-chess-pawn text-lg text-slate-500"></i> Play as Black
+                        </button>
+                    </div>
+                </div>
+
+                <!-- AI Difficulty Level -->
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">Stockfish AI Difficulty</label>
+                    <select id="setup-difficulty" class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs font-semibold rounded-xl p-3 outline-none focus:border-amber-500 transition">
+                        <option value="2">Beginner (Depth 2)</option>
+                        <option value="6">Casual (Depth 6)</option>
+                        <option value="10" selected>Intermediate (Depth 10)</option>
+                        <option value="14">Master (Depth 14)</option>
+                        <option value="18">Grandmaster (Depth 18)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mt-6 flex gap-3">
+                <button type="button" onclick="window.gameApp.startNewConfiguredGame()" class="w-full py-3 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-sm tracking-wide transition shadow-lg shadow-amber-500/25 active:scale-98">
+                    Start Match
+                </button>
             </div>
         </div>
     </div>
 
+    <!-- Pawn Promotion Modal -->
+    <div id="promotion-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel max-w-sm w-full p-6 rounded-3xl text-center shadow-2xl border border-slate-700">
+            <h3 class="text-xl font-bold text-white mb-2">Pawn Promotion</h3>
+            <p class="text-slate-300 text-xs mb-6">Select a piece to promote your pawn:</p>
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="window.gameApp.promotePawn('q')" class="p-4 rounded-2xl bg-slate-800 hover:bg-amber-500 hover:text-slate-950 font-bold text-slate-200 transition flex flex-col items-center gap-2 border border-slate-700">
+                    <i class="fa-solid fa-chess-queen text-2xl text-amber-400"></i> Queen
+                </button>
+                <button onclick="window.gameApp.promotePawn('r')" class="p-4 rounded-2xl bg-slate-800 hover:bg-amber-500 hover:text-slate-950 font-bold text-slate-200 transition flex flex-col items-center gap-2 border border-slate-700">
+                    <i class="fa-solid fa-chess-rook text-2xl text-amber-400"></i> Rook
+                </button>
+                <button onclick="window.gameApp.promotePawn('b')" class="p-4 rounded-2xl bg-slate-800 hover:bg-amber-500 hover:text-slate-950 font-bold text-slate-200 transition flex flex-col items-center gap-2 border border-slate-700">
+                    <i class="fa-solid fa-chess-bishop text-2xl text-amber-400"></i> Bishop
+                </button>
+                <button onclick="window.gameApp.promotePawn('n')" class="p-4 rounded-2xl bg-slate-800 hover:bg-amber-500 hover:text-slate-950 font-bold text-slate-200 transition flex flex-col items-center gap-2 border border-slate-700">
+                    <i class="fa-solid fa-chess-knight text-2xl text-amber-400"></i> Knight
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="game-over-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel max-w-md w-full p-6 rounded-3xl text-center shadow-2xl border border-slate-700">
+            <div class="w-16 h-16 bg-amber-500/20 text-amber-400 rounded-2xl mx-auto flex items-center justify-center text-3xl mb-4 shadow-inner">
+                <i id="game-over-icon" class="fa-solid fa-trophy"></i>
+            </div>
+            <h3 id="game-over-title" class="text-2xl font-black text-white mb-2">Checkmate!</h3>
+            <p id="game-over-message" class="text-slate-300 text-sm mb-6">White wins the match by checkmate.</p>
+            <button onclick="window.gameApp.openSetupModal()" class="w-full py-3 px-6 rounded-xl bg-amber-500 hover:bg-amber-400 font-black text-slate-950 transition shadow-lg shadow-amber-500/20 active:scale-98">
+                Play Again
+            </button>
+        </div>
+    </div>
+
+    <!-- Application Engine Script -->
     <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const scoreElement = document.getElementById('score-value');
-        const finalScoreElement = document.getElementById('final-score');
-        const startScreen = document.getElementById('start-screen');
-        const gameOverScreen = document.getElementById('game-over-screen');
-        const startBtn = document.getElementById('start-btn');
-        const restartBtn = document.getElementById('restart-btn');
-
-        // Game State Variables
-        let w, h;
-        let animationId;
-        let score = 0;
-        let gameActive = false;
-        let frameCount = 0;
-
-        // Entities
-        let player;
-        let projectiles = [];
-        let enemies = [];
-        let particles = [];
-        let stars = [];
-
-        // Input State
-        const keys = {
-            ArrowLeft: false,
-            ArrowRight: false,
-            a: false,
-            d: false,
-            Space: true // Auto fire by default, can be toggled
-        };
-        let targetX = null; // For touch/mouse movement
-
-        // Audio Context (Simple synthesized sounds)
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const audioCtx = new AudioContext();
-
+        // Web Audio Synthesizer
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playSound(type) {
-            if (audioCtx.state === 'suspended') return; // Don't play if context suspended
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
+            try {
+                if (!audioCtx) return;
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                const now = audioCtx.currentTime;
 
-            if (type === 'shoot') {
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.1);
-                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.1);
-            } else if (type === 'explosion') {
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(100, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.3);
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.3);
+                if (type === 'move') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(320, now);
+                    osc.frequency.exponentialRampToValueAtTime(160, now + 0.08);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                } else if (type === 'capture') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(240, now);
+                    osc.frequency.exponentialRampToValueAtTime(90, now + 0.14);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.14);
+                    osc.start(now);
+                    osc.stop(now + 0.14);
+                } else if (type === 'check') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.setValueAtTime(660, now + 0.08);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+                    osc.start(now);
+                    osc.stop(now + 0.22);
+                } else if (type === 'hint') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, now);
+                    osc.frequency.setValueAtTime(659.25, now + 0.08);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                }
+            } catch (e) {
+                console.warn('Audio play error:', e);
             }
         }
 
-        function resize() {
-            w = canvas.width = window.innerWidth;
-            h = canvas.height = window.innerHeight;
-            if (player) {
-                player.y = h - 60;
-                // Keep player within bounds on resize
-                if (player.x > w) player.x = w - 30;
-            }
-        }
-        window.addEventListener('resize', resize);
-        resize();
-
-        // Utility: Random number generator
-        const random = (min, max) => Math.random() * (max - min) + min;
-
-        class Star {
+        // AAA 3D Chess Application
+        class Chess3DApp {
             constructor() {
-                this.reset();
-                this.y = random(0, h); // Initial random placement
-            }
-            reset() {
-                this.x = random(0, w);
-                this.y = 0;
-                this.size = random(0.5, 2.5);
-                this.speed = this.size * 0.5; // Bigger stars move faster (parallax)
-                this.alpha = random(0.3, 0.8);
-            }
-            update() {
-                this.y += this.speed;
-                if (this.y > h) this.reset();
-            }
-            draw() {
-                ctx.fillStyle = `rgba(255, 255, 255, ${this.alpha})`;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-
-        function initStars() {
-            stars = [];
-            for (let i = 0; i < 150; i++) {
-                stars.push(new Star());
-            }
-        }
-
-        class Player {
-            constructor() {
-                this.width = 40;
-                this.height = 40;
-                this.x = w / 2;
-                this.y = h - 60;
-                this.speed = 7;
-                this.color = '#0ff';
-                this.lastShot = 0;
-                this.fireRate = 12; // Frames between shots
-            }
-
-            draw() {
-                ctx.save();
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = this.color;
-                ctx.fillStyle = this.color;
+                this.container = document.getElementById('webgl-container');
+                this.chess = new Chess();
+                this.gameMode = 'pve'; // 'pvp', 'pve', 'eve'
+                this.playerColor = 'w'; // 'w' or 'b'
+                this.difficulty = 10;
+                this.isBoardFlipped = false;
                 
-                // Draw a sleek spaceship shape (triangle)
-                ctx.beginPath();
-                ctx.moveTo(this.x, this.y - this.height / 2); // Nose
-                ctx.lineTo(this.x + this.width / 2, this.y + this.height / 2); // Right wing
-                ctx.lineTo(this.x, this.y + this.height / 4); // Engine indent
-                ctx.lineTo(this.x - this.width / 2, this.y + this.height / 2); // Left wing
-                ctx.closePath();
-                ctx.fill();
+                this.selectedSquare = null;
+                this.validMoves = [];
+                this.pieceMeshes = {};
+                this.highlightMeshes = [];
+                this.hintMeshes = [];
+                this.pendingPromotion = null;
+                this.isEngineSearching = false;
+                this.evalScore = 0;
+                this.animatingPieces = [];
 
-                // Engine glow
-                ctx.fillStyle = '#fff';
-                ctx.beginPath();
-                ctx.arc(this.x, this.y + this.height / 2, 4, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
+                // Setup setup modal variables
+                this.setupMode = 'pve';
+                this.setupColor = 'w';
+
+                this.initStockfishWorker();
+                this.initThree();
+                this.createBoard();
+                this.setupListeners();
+                this.syncBoard(true);
+                this.updateHUD();
             }
 
-            update() {
-                // Keyboard Movement
-                if (keys.ArrowLeft || keys.a) this.x -= this.speed;
-                if (keys.ArrowRight || keys.d) this.x += this.speed;
+            initStockfishWorker() {
+                // Stockfish WebWorker with robust fallback
+                try {
+                    fetch('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js')
+                        .then(res => res.text())
+                        .then(text => {
+                            const blob = new Blob([text], { type: 'application/javascript' });
+                            this.stockfish = new Worker(URL.createObjectURL(blob));
+                            this.stockfish.onmessage = (event) => this.handleStockfishMessage(event.data);
+                            this.stockfish.postMessage('uci');
+                            this.stockfish.postMessage('isready');
+                            document.getElementById('engine-status').innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Stockfish Ready';
+                        })
+                        .catch(() => this.initFallbackEngine());
+                } catch(e) {
+                    this.initFallbackEngine();
+                }
+            }
 
-                // Touch/Mouse Movement (Smooth interpolation towards target)
-                if (targetX !== null) {
-                    const dx = targetX - this.x;
-                    if (Math.abs(dx) > this.speed) {
-                        this.x += Math.sign(dx) * this.speed;
-                    } else {
-                        this.x = targetX; // Snap when close
+            initFallbackEngine() {
+                console.warn("Stockfish worker CDN unavailable. Local Minimax Fallback Active.");
+                document.getElementById('engine-status').innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400"></span> Local AI Active';
+                this.stockfish = null;
+            }
+
+            handleStockfishMessage(data) {
+                if (typeof data !== 'string') return;
+
+                if (data.includes('score cp')) {
+                    const match = data.match(/score cp (-?\d+)/);
+                    if (match) {
+                        let cp = parseInt(match[1]);
+                        if (this.chess.turn() === 'b') cp = -cp;
+                        this.evalScore = cp;
+                        this.updateEvalBar();
+                    }
+                } else if (data.includes('score mate')) {
+                    const match = data.match(/score mate (-?\d+)/);
+                    if (match) {
+                        let mateIn = parseInt(match[1]);
+                        this.evalScore = mateIn > 0 ? 10000 : -10000;
+                        this.updateEvalBar(mateIn);
                     }
                 }
 
-                // Boundaries
-                if (this.x < this.width / 2) this.x = this.width / 2;
-                if (this.x > w - this.width / 2) this.x = w - this.width / 2;
-
-                // Auto-firing logic
-                if (frameCount - this.lastShot > this.fireRate) {
-                    this.shoot();
-                    this.lastShot = frameCount;
+                if (data.startsWith('bestmove')) {
+                    const parts = data.split(' ');
+                    const bestMoveStr = parts[1];
+                    if (this.isRequestingHint) {
+                        this.isRequestingHint = false;
+                        if (bestMoveStr && bestMoveStr !== '(none)') {
+                            this.renderHintArrow(bestMoveStr.substring(0, 2), bestMoveStr.substring(2, 4));
+                        }
+                    } else if (bestMoveStr && bestMoveStr !== '(none)') {
+                        this.executeStockfishMove(bestMoveStr);
+                    }
+                    this.isEngineSearching = false;
                 }
             }
 
-            shoot() {
-                // Twin blasters
-                projectiles.push(new Projectile(this.x - 10, this.y - this.height / 2));
-                projectiles.push(new Projectile(this.x + 10, this.y - this.height / 2));
-                playSound('shoot');
-            }
-        }
+            updateEvalBar(mateIn = null) {
+                const whiteBar = document.getElementById('eval-bar-white');
+                const blackBar = document.getElementById('eval-bar-black');
+                const evalText = document.getElementById('eval-text');
 
-        class Projectile {
-            constructor(x, y) {
-                this.x = x;
-                this.y = y;
-                this.radius = 3;
-                this.speed = 12;
-                this.color = '#ff0';
-                this.markedForDeletion = false;
-            }
-
-            draw() {
-                ctx.save();
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = this.color;
-                ctx.fillStyle = this.color;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fill();
-                // Trail
-                ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
-                ctx.fillRect(this.x - 1, this.y, 2, 15);
-                ctx.restore();
-            }
-
-            update() {
-                this.y -= this.speed;
-                if (this.y < -10) {
-                    this.markedForDeletion = true;
+                if (mateIn !== null) {
+                    evalText.textContent = `M${Math.abs(mateIn)}`;
+                    const percentage = mateIn > 0 ? 95 : 5;
+                    whiteBar.style.height = `${percentage}%`;
+                    blackBar.style.height = `${100 - percentage}%`;
+                    return;
                 }
+
+                const clamped = Math.max(-1000, Math.min(1000, this.evalScore));
+                const percentage = 50 + (clamped / 20);
+                whiteBar.style.height = `${percentage}%`;
+                blackBar.style.height = `${100 - percentage}%`;
+
+                const formatted = (this.evalScore / 100).toFixed(1);
+                evalText.textContent = (this.evalScore > 0 ? '+' : '') + formatted;
             }
-        }
 
-        class Enemy {
-            constructor() {
-                this.radius = random(15, 25);
-                this.x = random(this.radius, w - this.radius);
-                this.y = -this.radius;
-                
-                // Difficulty scaling based on score
-                const speedMultiplier = 1 + (score / 2000);
-                this.speed = random(1.5, 3.5) * speedMultiplier;
-                
-                this.type = Math.floor(random(0, 3)); // 0: Straight, 1: Wobbly, 2: Tracker
-                this.angle = 0;
-                this.markedForDeletion = false;
+            initThree() {
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x05070d);
+                this.scene.fog = new THREE.FogExp2(0x05070d, 0.015);
 
-                // Set properties based on type
-                if (this.type === 0) {
-                    this.color = '#f0f'; // Magenta square
-                    this.health = 1;
-                    this.scoreValue = 10;
-                } else if (this.type === 1) {
-                    this.color = '#0f0'; // Green diamond
-                    this.health = 2;
-                    this.scoreValue = 25;
-                    this.wobbleSpeed = random(0.05, 0.1);
-                    this.wobbleAmount = random(20, 50);
-                    this.startX = this.x;
+                this.camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.camera.position.set(0, 10.5, 10);
+
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                this.renderer.toneMappingExposure = 1.3;
+                this.container.appendChild(this.renderer.domElement);
+
+                this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+                this.controls.enableDamping = true;
+                this.controls.dampingFactor = 0.05;
+                this.controls.maxPolarAngle = Math.PI / 2 - 0.02;
+                this.controls.minDistance = 5;
+                this.controls.maxDistance = 22;
+                this.controls.target.set(0, 0, 0);
+
+                // Lighting Setup
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+                this.scene.add(ambientLight);
+
+                const keyLight = new THREE.DirectionalLight(0xfff3e0, 1.6);
+                keyLight.position.set(8, 15, 8);
+                keyLight.castShadow = true;
+                keyLight.shadow.mapSize.width = 4096;
+                keyLight.shadow.mapSize.height = 4096;
+                keyLight.shadow.bias = -0.0001;
+                keyLight.shadow.camera.near = 0.5;
+                keyLight.shadow.camera.far = 30;
+                const d = 7.5;
+                keyLight.shadow.camera.left = -d;
+                keyLight.shadow.camera.right = d;
+                keyLight.shadow.camera.top = d;
+                keyLight.shadow.camera.bottom = -d;
+                this.scene.add(keyLight);
+
+                const fillLight = new THREE.DirectionalLight(0x60a5fa, 0.6);
+                fillLight.position.set(-10, 10, -8);
+                this.scene.add(fillLight);
+
+                const rimLight = new THREE.DirectionalLight(0xf59e0b, 0.5);
+                rimLight.position.set(0, 6, -12);
+                this.scene.add(rimLight);
+
+                // Procedural Reflection Environment Map
+                const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+                this.envMap = pmremGenerator.fromScene(new THREE.Scene()).texture;
+
+                this.raycaster = new THREE.Raycaster();
+                this.mouse = new THREE.Vector2();
+
+                this.boardGroup = new THREE.Group();
+                this.scene.add(this.boardGroup);
+
+                this.piecesGroup = new THREE.Group();
+                this.scene.add(this.piecesGroup);
+            }
+
+            createBoard() {
+                const darkTexture = this.createWoodTexture(true);
+                const lightTexture = this.createWoodTexture(false);
+
+                const squareGeo = new THREE.BoxGeometry(1, 0.2, 1);
+                const darkMat = new THREE.MeshStandardMaterial({ map: darkTexture, roughness: 0.3, metalness: 0.05, envMap: this.envMap });
+                const lightMat = new THREE.MeshStandardMaterial({ map: lightTexture, roughness: 0.2, metalness: 0.05, envMap: this.envMap });
+
+                this.squaresMap = {};
+
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        const isDark = (r + c) % 2 === 1;
+                        const mesh = new THREE.Mesh(squareGeo, isDark ? darkMat : lightMat);
+                        mesh.position.set(c - 3.5, -0.1, r - 3.5);
+                        mesh.receiveShadow = true;
+                        mesh.castShadow = true;
+
+                        const file = String.fromCharCode(97 + c);
+                        const rank = 8 - r;
+                        const squareName = file + rank;
+                        mesh.userData = { square: squareName, type: 'square' };
+
+                        this.boardGroup.add(mesh);
+                        this.squaresMap[squareName] = mesh;
+                    }
+                }
+
+                // Inlaid Wood Table Border
+                const frameGeo = new THREE.BoxGeometry(9.5, 0.4, 9.5);
+                const frameMat = new THREE.MeshStandardMaterial({ color: 0x1e0e07, roughness: 0.35, metalness: 0.15 });
+                const frame = new THREE.Mesh(frameGeo, frameMat);
+                frame.position.set(0, -0.4, 0);
+                frame.receiveShadow = true;
+                frame.castShadow = true;
+                this.boardGroup.add(frame);
+
+                // Metallic Corner Trims
+                const brassMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.2, metalness: 0.9, envMap: this.envMap });
+                const cornerGeo = new THREE.BoxGeometry(0.5, 0.42, 0.5);
+                [[-4.55, -4.55], [4.55, -4.55], [-4.55, 4.55], [4.55, 4.55]].forEach(([x, z]) => {
+                    const corner = new THREE.Mesh(cornerGeo, brassMat);
+                    corner.position.set(x, -0.38, z);
+                    corner.castShadow = true;
+                    this.boardGroup.add(corner);
+                });
+            }
+
+            createWoodTexture(isDark) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+
+                ctx.fillStyle = isDark ? '#23120b' : '#edd8b8';
+                ctx.fillRect(0, 0, 512, 512);
+
+                ctx.fillStyle = isDark ? 'rgba(15, 8, 4, 0.4)' : 'rgba(185, 145, 105, 0.35)';
+                for (let i = 0; i < 90; i++) {
+                    ctx.fillRect(0, Math.random() * 512, 512, Math.random() * 6);
+                }
+
+                const texture = new THREE.CanvasTexture(canvas);
+                return texture;
+            }
+
+            createMarbleTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#faf8f5';
+                ctx.fillRect(0, 0, 512, 512);
+
+                ctx.strokeStyle = 'rgba(180, 185, 200, 0.25)';
+                ctx.lineWidth = 5;
+                for (let i = 0; i < 6; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(Math.random() * 512, 0);
+                    ctx.bezierCurveTo(Math.random() * 512, 180, Math.random() * 512, 340, Math.random() * 512, 512);
+                    ctx.stroke();
+                }
+
+                return new THREE.CanvasTexture(canvas);
+            }
+
+            createEbonyTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#100e0d';
+                ctx.fillRect(0, 0, 512, 512);
+
+                ctx.fillStyle = 'rgba(50, 40, 35, 0.35)';
+                for (let i = 0; i < 100; i++) {
+                    ctx.fillRect(0, Math.random() * 512, 512, Math.random() * 4);
+                }
+
+                return new THREE.CanvasTexture(canvas);
+            }
+
+            createPieceMesh(type, color) {
+                const group = new THREE.Group();
+
+                let material;
+                if (color === 'w') {
+                    material = new THREE.MeshStandardMaterial({
+                        map: this.createMarbleTexture(),
+                        color: 0xffffff,
+                        roughness: 0.15,
+                        metalness: 0.1,
+                        envMap: this.envMap
+                    });
                 } else {
-                    this.color = '#f00'; // Red hexagon (tougher)
-                    this.health = 4;
-                    this.scoreValue = 50;
-                    this.speed = random(1, 2) * speedMultiplier; // Slower but tracks
-                }
-            }
-
-            draw() {
-                ctx.save();
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = this.color;
-                ctx.strokeStyle = this.color;
-                ctx.lineWidth = 3;
-                ctx.fillStyle = 'rgba(0,0,0,0.8)'; // Hollow filled
-
-                ctx.translate(this.x, this.y);
-                
-                // Add some rotation based on movement
-                if (this.type === 1) ctx.rotate(this.angle);
-                
-                ctx.beginPath();
-                
-                if (this.type === 0) {
-                    // Square
-                    ctx.rect(-this.radius, -this.radius, this.radius * 2, this.radius * 2);
-                } else if (this.type === 1) {
-                    // Diamond
-                    ctx.moveTo(0, -this.radius);
-                    ctx.lineTo(this.radius, 0);
-                    ctx.lineTo(0, this.radius);
-                    ctx.lineTo(-this.radius, 0);
-                    ctx.closePath();
-                } else {
-                    // Hexagon
-                    for (let i = 0; i < 6; i++) {
-                        const a = (Math.PI / 3) * i;
-                        const px = this.radius * Math.cos(a);
-                        const py = this.radius * Math.sin(a);
-                        if (i === 0) ctx.moveTo(px, py);
-                        else ctx.lineTo(px, py);
-                    }
-                    ctx.closePath();
+                    material = new THREE.MeshStandardMaterial({
+                        map: this.createEbonyTexture(),
+                        color: 0x141210,
+                        roughness: 0.25,
+                        metalness: 0.3,
+                        envMap: this.envMap
+                    });
                 }
 
-                ctx.fill();
-                ctx.stroke();
+                const trimMat = new THREE.MeshStandardMaterial({
+                    color: color === 'w' ? 0xd4af37 : 0xc0c0c0,
+                    roughness: 0.2,
+                    metalness: 0.85,
+                    envMap: this.envMap
+                });
 
-                // Draw health indicator if > 1
-                if (this.health > 1) {
-                    ctx.fillStyle = '#fff';
-                    ctx.font = '10px "Press Start 2P"';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(this.health, 0, 0);
-                }
+                const feltMat = new THREE.MeshStandardMaterial({ color: 0x155e75, roughness: 0.9 }); // Felt base
 
-                ctx.restore();
-            }
-
-            update() {
-                if (this.type === 0) {
-                    // Straight down
-                    this.y += this.speed;
-                } else if (this.type === 1) {
-                    // Wobbly sine wave pattern
-                    this.y += this.speed;
-                    this.x = this.startX + Math.sin(this.angle) * this.wobbleAmount;
-                    this.angle += this.wobbleSpeed;
-                    
-                    // Keep in bounds
-                    if (this.x < this.radius) {
-                        this.x = this.radius; 
-                        this.startX = this.radius; // Reset anchor
-                    }
-                    if (this.x > w - this.radius) {
-                         this.x = w - this.radius;
-                         this.startX = w - this.radius;
-                    }
-                } else {
-                    // Tracker: Move towards player horizontally while falling
-                    this.y += this.speed;
-                    if (player) {
-                        const dx = player.x - this.x;
-                        const horizontalSpeed = this.speed * 0.8;
-                        if (dx > 0) this.x += horizontalSpeed;
-                        else if (dx < 0) this.x -= horizontalSpeed;
-                    }
-                }
-
-                if (this.y > h + this.radius) {
-                    this.markedForDeletion = true;
-                }
-            }
-        }
-
-        class Particle {
-            constructor(x, y, color) {
-                this.x = x;
-                this.y = y;
-                this.color = color;
-                this.radius = random(1, 3);
-                const angle = random(0, Math.PI * 2);
-                const speed = random(1, 6);
-                this.velocity = {
-                    x: Math.cos(angle) * speed,
-                    y: Math.sin(angle) * speed
+                const makeLathe = (pts, segments = 36) => {
+                    const v2s = pts.map(p => new THREE.Vector2(p[0], p[1]));
+                    const geo = new THREE.LatheGeometry(v2s, segments);
+                    const mesh = new THREE.Mesh(geo, material);
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    return mesh;
                 };
-                this.alpha = 1;
-                this.decay = random(0.01, 0.03);
-                this.markedForDeletion = false;
-            }
 
-            draw() {
-                ctx.save();
-                ctx.globalAlpha = this.alpha;
-                ctx.fillStyle = this.color;
-                ctx.shadowBlur = 5;
-                ctx.shadowColor = this.color;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-            }
+                // Felt pad bottom
+                const feltPad = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.02, 32), feltMat);
+                feltPad.position.y = 0.01;
+                group.add(feltPad);
 
-            update() {
-                this.x += this.velocity.x;
-                this.y += this.velocity.y;
-                this.alpha -= this.decay;
-                if (this.alpha <= 0) {
-                    this.markedForDeletion = true;
+                // Multi-tiered Staunton Base Collar
+                const basePts = [
+                    [0, 0.02], [0.38, 0.02], [0.42, 0.06], [0.39, 0.12], [0.31, 0.15]
+                ];
+                group.add(makeLathe(basePts));
+
+                if (type === 'p') { // Pawn
+                    const pts = [
+                        [0.31, 0.15], [0.24, 0.22], [0.18, 0.40], [0.16, 0.54],
+                        [0.21, 0.62], [0.18, 0.66], [0.13, 0.69], [0.19, 0.73],
+                        [0.22, 0.78], [0.20, 0.84], [0.12, 0.88], [0, 0.90]
+                    ];
+                    group.add(makeLathe(pts));
+                    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.20, 0.02, 16, 32), trimMat);
+                    ring.rotation.x = Math.PI / 2;
+                    ring.position.y = 0.62;
+                    ring.castShadow = true;
+                    group.add(ring);
+
+                } else if (type === 'r') { // Rook
+                    const pts = [
+                        [0.31, 0.15], [0.28, 0.24], [0.25, 0.50], [0.26, 0.82],
+                        [0.33, 0.88], [0.33, 1.02], [0.28, 1.02], [0.28, 0.94], [0, 0.94]
+                    ];
+                    group.add(makeLathe(pts));
+                    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.022, 16, 32), trimMat);
+                    ring.rotation.x = Math.PI / 2;
+                    ring.position.y = 0.94;
+                    ring.castShadow = true;
+                    group.add(ring);
+
+                } else if (type === 'n') { // Knight (Sculpted 3D Horse Head)
+                    const pedestalPts = [
+                        [0.31, 0.15], [0.26, 0.28], [0.22, 0.48], [0.27, 0.58], [0, 0.58]
+                    ];
+                    group.add(makeLathe(pedestalPts));
+
+                    const horseShape = new THREE.Shape();
+                    horseShape.moveTo(-0.13, 0.58);
+                    horseShape.lineTo(0.03, 0.58);
+                    horseShape.lineTo(0.20, 0.78);
+                    horseShape.lineTo(0.26, 0.92);
+                    horseShape.lineTo(0.15, 0.98);
+                    horseShape.lineTo(0.05, 0.86);
+                    horseShape.lineTo(0.09, 1.08);
+                    horseShape.lineTo(0.01, 1.22);
+                    horseShape.lineTo(-0.09, 1.05);
+                    horseShape.lineTo(-0.18, 0.82);
+                    horseShape.lineTo(-0.13, 0.58);
+
+                    const horseGeo = new THREE.ExtrudeGeometry(horseShape, {
+                        steps: 2,
+                        depth: 0.26,
+                        bevelEnabled: true,
+                        bevelThickness: 0.07,
+                        bevelSize: 0.07,
+                        bevelSegments: 4
+                    });
+                    horseGeo.center();
+                    const horseHead = new THREE.Mesh(horseGeo, material);
+                    horseHead.position.set(0, 0.88, 0);
+                    horseHead.castShadow = true;
+                    horseHead.receiveShadow = true;
+                    group.add(horseHead);
+
+                } else if (type === 'b') { // Bishop
+                    const pts = [
+                        [0.31, 0.15], [0.25, 0.26], [0.18, 0.52], [0.15, 0.82],
+                        [0.22, 0.98], [0.17, 1.08], [0.08, 1.15], [0, 1.18]
+                    ];
+                    group.add(makeLathe(pts));
+
+                    const finial = new THREE.Mesh(new THREE.SphereGeometry(0.055, 16, 16), trimMat);
+                    finial.position.y = 1.22;
+                    finial.castShadow = true;
+                    group.add(finial);
+
+                    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.02, 16, 32), trimMat);
+                    ring.rotation.x = Math.PI / 2;
+                    ring.position.y = 0.98;
+                    ring.castShadow = true;
+                    group.add(ring);
+
+                } else if (type === 'q') { // Queen
+                    const pts = [
+                        [0.33, 0.15], [0.28, 0.28], [0.20, 0.58], [0.16, 0.90],
+                        [0.24, 1.15], [0.32, 1.30], [0.18, 1.38], [0, 1.42]
+                    ];
+                    group.add(makeLathe(pts));
+
+                    const crownBall = new THREE.Mesh(new THREE.SphereGeometry(0.065, 16, 16), trimMat);
+                    crownBall.position.y = 1.48;
+                    crownBall.castShadow = true;
+                    group.add(crownBall);
+
+                    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.025, 16, 32), trimMat);
+                    ring.rotation.x = Math.PI / 2;
+                    ring.position.y = 1.15;
+                    ring.castShadow = true;
+                    group.add(ring);
+
+                } else if (type === 'k') { // King
+                    const pts = [
+                        [0.35, 0.15], [0.30, 0.28], [0.22, 0.60], [0.18, 0.96],
+                        [0.26, 1.22], [0.34, 1.38], [0.22, 1.46], [0, 1.52]
+                    ];
+                    group.add(makeLathe(pts));
+
+                    const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.35, 0.08), trimMat);
+                    crossV.position.y = 1.62;
+                    crossV.castShadow = true;
+                    group.add(crossV);
+
+                    const crossH = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.08, 0.08), trimMat);
+                    crossH.position.y = 1.62;
+                    crossH.castShadow = true;
+                    group.add(crossH);
+
+                    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.028, 16, 32), trimMat);
+                    ring.rotation.x = Math.PI / 2;
+                    ring.position.y = 1.22;
+                    ring.castShadow = true;
+                    group.add(ring);
                 }
+
+                group.userData = { type: 'piece', chessType: type, color: color };
+                return group;
             }
-        }
 
-        function createExplosion(x, y, color, count = 15) {
-            for (let i = 0; i < count; i++) {
-                particles.push(new Particle(x, y, color));
+            getSquarePosition(square) {
+                const file = square.charCodeAt(0) - 97;
+                const rank = 8 - parseInt(square[1]);
+                return { x: file - 3.5, z: rank - 3.5 };
             }
-            playSound('explosion');
-        }
 
-        function checkCollisions() {
-            // Bullet vs Enemy
-            projectiles.forEach(p => {
-                enemies.forEach(e => {
-                    if (!p.markedForDeletion && !e.markedForDeletion) {
-                        // Simple circle collision
-                        const dx = p.x - e.x;
-                        const dy = p.y - e.y;
-                        const distance = Math.hypot(dx, dy);
-                        
-                        if (distance < p.radius + e.radius) {
-                            p.markedForDeletion = true;
-                            e.health -= 1;
-                            
-                            // Hit effect (small particles)
-                            createExplosion(p.x, p.y, p.color, 3);
+            syncBoard(instant = false) {
+                while (this.piecesGroup.children.length > 0) {
+                    this.piecesGroup.remove(this.piecesGroup.children[0]);
+                }
+                this.pieceMeshes = {};
 
-                            if (e.health <= 0) {
-                                e.markedForDeletion = true;
-                                score += e.scoreValue;
-                                updateScoreDisplay();
-                                createExplosion(e.x, e.y, e.color, 20);
+                const boardState = this.chess.board();
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        const piece = boardState[r][c];
+                        if (piece) {
+                            const file = String.fromCharCode(97 + c);
+                            const rank = 8 - r;
+                            const squareName = file + rank;
+
+                            const mesh = this.createPieceMesh(piece.type, piece.color);
+                            const pos = this.getSquarePosition(squareName);
+                            mesh.position.set(pos.x, 0, pos.z);
+
+                            if (piece.type === 'n' && piece.color === 'b') {
+                                mesh.rotation.y = Math.PI;
                             }
+
+                            this.piecesGroup.add(mesh);
+                            this.pieceMeshes[squareName] = mesh;
                         }
                     }
+                }
+            }
+
+            setupListeners() {
+                window.addEventListener('resize', () => this.onWindowResize());
+                this.renderer.domElement.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+            }
+
+            onWindowResize() {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            onPointerDown(event) {
+                if (event.button !== 0) return;
+                if (this.isEngineSearching) return;
+                if (this.gameMode === 'eve') return;
+
+                // Restrict click during AI turns in PvE mode
+                if (this.gameMode === 'pve' && this.chess.turn() !== this.playerColor) return;
+
+                this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+                this.raycaster.setFromCamera(this.mouse, this.camera);
+                const intersects = this.raycaster.intersectObjects(this.boardGroup.children, true);
+
+                if (intersects.length > 0) {
+                    let obj = intersects[0].object;
+                    while (obj && !obj.userData.square) {
+                        obj = obj.parent;
+                    }
+                    if (obj && obj.userData.square) {
+                        this.handleSquareClick(obj.userData.square);
+                    }
+                }
+            }
+
+            handleSquareClick(square) {
+                if (this.chess.game_over()) return;
+
+                const piece = this.chess.get(square);
+
+                if (this.selectedSquare) {
+                    if (this.selectedSquare === square) {
+                        this.clearSelection();
+                        return;
+                    }
+
+                    const moveMatch = this.validMoves.find(m => m.to === square);
+                    if (moveMatch) {
+                        if (moveMatch.promotion) {
+                            this.pendingPromotion = moveMatch;
+                            document.getElementById('promotion-modal').classList.remove('hidden');
+                            return;
+                        }
+
+                        this.executeMove(moveMatch);
+                        this.clearSelection();
+                        return;
+                    }
+                }
+
+                if (piece && piece.color === this.chess.turn()) {
+                    this.selectedSquare = square;
+                    this.validMoves = this.chess.moves({ square: square, verbose: true });
+                    this.highlightValidMoves();
+                } else {
+                    this.clearSelection();
+                }
+            }
+
+            promotePawn(promoPiece) {
+                document.getElementById('promotion-modal').classList.add('hidden');
+                if (this.pendingPromotion) {
+                    this.pendingPromotion.promotion = promoPiece;
+                    this.executeMove(this.pendingPromotion);
+                    this.pendingPromotion = null;
+                    this.clearSelection();
+                }
+            }
+
+            highlightValidMoves() {
+                this.clearHighlights();
+
+                const ringGeo = new THREE.RingGeometry(0.28, 0.38, 32);
+                ringGeo.rotateX(-Math.PI / 2);
+
+                this.validMoves.forEach(move => {
+                    const pos = this.getSquarePosition(move.to);
+                    const mat = new THREE.MeshBasicMaterial({
+                        color: move.captured ? 0xf43f5e : 0x38bdf8,
+                        side: THREE.DoubleSide,
+                        transparent: true,
+                        opacity: 0.85
+                    });
+                    const marker = new THREE.Mesh(ringGeo, mat);
+                    marker.position.set(pos.x, 0.02, pos.z);
+                    this.scene.add(marker);
+                    this.highlightMeshes.push(marker);
                 });
-            });
+            }
 
-            // Player vs Enemy
-            enemies.forEach(e => {
-                if (!e.markedForDeletion) {
-                    const dx = player.x - e.x;
-                    const dy = player.y - e.y;
-                    const distance = Math.hypot(dx, dy);
-                    
-                    // Slightly forgiving hit box for player (using average radius)
-                    const playerHitRadius = player.width * 0.4; 
-                    
-                    if (distance < playerHitRadius + e.radius) {
-                        handleGameOver();
+            clearHighlights() {
+                this.highlightMeshes.forEach(m => this.scene.remove(m));
+                this.highlightMeshes = [];
+                this.clearHintArrows();
+            }
+
+            clearSelection() {
+                this.selectedSquare = null;
+                this.validMoves = [];
+                this.clearHighlights();
+            }
+
+            executeMove(moveObj) {
+                const isCapture = moveObj.captured;
+                const result = this.chess.move(moveObj);
+                if (!result) return;
+
+                if (this.chess.in_check()) {
+                    playSound('check');
+                } else if (isCapture) {
+                    playSound('capture');
+                } else {
+                    playSound('move');
+                }
+
+                this.syncBoard();
+                this.updateHUD();
+
+                if (this.chess.game_over()) {
+                    this.showGameOverModal();
+                } else {
+                    this.checkAITrigger();
+                }
+            }
+
+            checkAITrigger() {
+                if (this.chess.game_over()) return;
+
+                if (this.gameMode === 'eve') {
+                    setTimeout(() => this.triggerAI(), 400);
+                } else if (this.gameMode === 'pve' && this.chess.turn() !== this.playerColor) {
+                    setTimeout(() => this.triggerAI(), 350);
+                }
+            }
+
+            triggerAI() {
+                if (this.chess.game_over()) return;
+
+                this.isEngineSearching = true;
+
+                if (this.stockfish) {
+                    const fen = this.chess.fen();
+                    this.stockfish.postMessage(`position fen ${fen}`);
+                    this.stockfish.postMessage(`go depth ${this.difficulty}`);
+                } else {
+                    // Minimax Fallback
+                    setTimeout(() => {
+                        const moves = this.chess.moves({ verbose: true });
+                        if (moves.length > 0) {
+                            // Basic heuristic capture selection
+                            let selected = moves[Math.floor(Math.random() * moves.length)];
+                            const captureMove = moves.find(m => m.captured);
+                            if (captureMove) selected = captureMove;
+                            this.executeMove(selected);
+                        }
+                        this.isEngineSearching = false;
+                    }, 400);
+                }
+            }
+
+            executeStockfishMove(moveStr) {
+                const from = moveStr.substring(0, 2);
+                const to = moveStr.substring(2, 4);
+                const promotion = moveStr.length > 4 ? moveStr[4] : undefined;
+
+                const moveObj = { from, to, promotion: promotion || 'q' };
+                const moveResult = this.chess.move(moveObj);
+                if (!moveResult) return;
+
+                const isCapture = moveResult.captured;
+                if (this.chess.in_check()) {
+                    playSound('check');
+                } else if (isCapture) {
+                    playSound('capture');
+                } else {
+                    playSound('move');
+                }
+
+                this.syncBoard();
+                this.updateHUD();
+
+                if (this.chess.game_over()) {
+                    this.showGameOverModal();
+                } else if (this.gameMode === 'eve') {
+                    setTimeout(() => this.triggerAI(), 450);
+                }
+            }
+
+            requestEngineHint() {
+                if (this.chess.game_over() || this.isEngineSearching) return;
+                playSound('hint');
+
+                if (this.stockfish) {
+                    this.isRequestingHint = true;
+                    const fen = this.chess.fen();
+                    this.stockfish.postMessage(`position fen ${fen}`);
+                    this.stockfish.postMessage(`go depth 8`);
+                } else {
+                    const moves = this.chess.moves({ verbose: true });
+                    if (moves.length > 0) {
+                        const hintMove = moves[0];
+                        this.renderHintArrow(hintMove.from, hintMove.to);
                     }
                 }
-            });
-        }
-
-        function spawnEnemies() {
-            // Base spawn rate decreases as score goes up, creating more enemies
-            const baseSpawnRate = 60; 
-            const spawnRate = Math.max(15, baseSpawnRate - Math.floor(score / 500));
-            
-            if (frameCount % spawnRate === 0) {
-                enemies.push(new Enemy());
             }
-        }
 
-        function updateScoreDisplay() {
-            scoreElement.innerText = score;
-        }
+            renderHintArrow(fromSquare, toSquare) {
+                this.clearHintArrows();
 
-        function gameLoop() {
-            if (!gameActive) return;
+                const p1 = this.getSquarePosition(fromSquare);
+                const p2 = this.getSquarePosition(toSquare);
 
-            // Clear screen with a slight trailing effect (dark rect with low opacity)
-            ctx.fillStyle = 'rgba(5, 5, 16, 0.4)';
-            ctx.fillRect(0, 0, w, h);
+                const dir = new THREE.Vector3(p2.x - p1.x, 0, p2.z - p1.z);
+                const length = dir.length();
+                dir.normalize();
 
-            frameCount++;
+                const arrowHelper = new THREE.ArrowHelper(
+                    dir,
+                    new THREE.Vector3(p1.x, 0.1, p1.z),
+                    length,
+                    0x10b981,
+                    0.35,
+                    0.25
+                );
+                this.scene.add(arrowHelper);
+                this.hintMeshes.push(arrowHelper);
+            }
 
-            // Update and draw background
-            stars.forEach(star => {
-                star.update();
-                star.draw();
-            });
+            clearHintArrows() {
+                this.hintMeshes.forEach(m => this.scene.remove(m));
+                this.hintMeshes = [];
+            }
 
-            // Update and draw Player
-            player.update();
-            player.draw();
+            undoMove() {
+                const steps = (this.gameMode === 'pve' || this.gameMode === 'eve') ? 2 : 1;
+                for (let i = 0; i < steps; i++) {
+                    this.chess.undo();
+                }
+                this.clearSelection();
+                this.syncBoard();
+                this.updateHUD();
+                document.getElementById('game-over-modal').classList.add('hidden');
+            }
 
-            // Spawn Enemies
-            spawnEnemies();
+            openSetupModal() {
+                document.getElementById('setup-modal').classList.remove('hidden');
+            }
 
-            // Update Arrays
-            [projectiles, enemies, particles].forEach(array => {
-                for (let i = array.length - 1; i >= 0; i--) {
-                    let entity = array[i];
-                    entity.update();
-                    if (entity.markedForDeletion) {
-                        array.splice(i, 1);
+            selectSetupMode(mode) {
+                this.setupMode = mode;
+                ['pve', 'pvp', 'eve'].forEach(m => {
+                    const btn = document.getElementById(`mode-${m}`);
+                    if (m === mode) {
+                        btn.className = "p-3 rounded-xl border border-amber-500/50 bg-amber-500/10 text-amber-300 font-bold text-xs flex flex-col items-center gap-1.5 transition";
                     } else {
-                        entity.draw();
+                        btn.className = "p-3 rounded-xl border border-slate-700 bg-slate-900 text-slate-400 font-bold text-xs flex flex-col items-center gap-1.5 transition";
+                    }
+                });
+
+                const sideGroup = document.getElementById('side-select-group');
+                if (mode === 'pvp' || mode === 'eve') {
+                    sideGroup.classList.add('opacity-40', 'pointer-events-none');
+                } else {
+                    sideGroup.classList.remove('opacity-40', 'pointer-events-none');
+                }
+            }
+
+            selectSetupColor(color) {
+                this.setupColor = color;
+                ['w', 'b'].forEach(c => {
+                    const btn = document.getElementById(`color-${c}`);
+                    if (c === color) {
+                        btn.className = "p-3.5 rounded-xl border border-amber-500/80 bg-amber-500/20 text-amber-200 font-bold text-xs flex items-center justify-center gap-2 transition";
+                    } else {
+                        btn.className = "p-3.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-400 font-bold text-xs flex items-center justify-center gap-2 transition";
+                    }
+                });
+            }
+
+            startNewConfiguredGame() {
+                this.gameMode = this.setupMode;
+                this.playerColor = this.setupColor;
+                this.difficulty = parseInt(document.getElementById('setup-difficulty').value);
+
+                document.getElementById('setup-modal').classList.add('hidden');
+                document.getElementById('game-over-modal').classList.add('hidden');
+
+                this.chess.reset();
+                this.clearSelection();
+                this.syncBoard();
+                this.updateHUD();
+
+                this.evalScore = 0;
+                this.updateEvalBar();
+
+                // Camera orientation based on side selection
+                if (this.gameMode === 'pve' && this.playerColor === 'b') {
+                    this.setCameraPreset('black');
+                } else {
+                    this.setCameraPreset('white');
+                }
+
+                // If playing as Black against AI, Stockfish makes opening move as White
+                this.checkAITrigger();
+            }
+
+            flipBoard() {
+                this.isBoardFlipped = !this.isBoardFlipped;
+                const targetZ = this.isBoardFlipped ? -10.5 : 10.5;
+                this.camera.position.set(0, 10.5, targetZ);
+                this.controls.target.set(0, 0, 0);
+                this.controls.update();
+            }
+
+            setCameraPreset(preset) {
+                if (preset === 'white') {
+                    this.camera.position.set(0, 10.5, 10);
+                    this.isBoardFlipped = false;
+                } else if (preset === 'black') {
+                    this.camera.position.set(0, 10.5, -10);
+                    this.isBoardFlipped = true;
+                } else if (preset === 'top') {
+                    this.camera.position.set(0, 17, 0.01);
+                } else if (preset === 'cinematic') {
+                    this.camera.position.set(9.5, 7.5, 9.5);
+                }
+                this.controls.target.set(0, 0, 0);
+                this.controls.update();
+            }
+
+            updateHUD() {
+                const turn = this.chess.turn();
+                const turnText = turn === 'w' ? "White's Turn" : "Black's Turn";
+                document.getElementById('status-text').textContent = turnText;
+
+                const indicator = document.getElementById('turn-indicator');
+                indicator.className = turn === 'w'
+                    ? "w-4 h-4 rounded-full bg-amber-400 animate-pulse shadow-[0_0_15px_rgba(251,191,36,0.9)]"
+                    : "w-4 h-4 rounded-full bg-slate-400 animate-pulse shadow-[0_0_15px_rgba(148,163,184,0.9)]";
+
+                const checkAlert = document.getElementById('check-alert');
+                if (this.chess.in_check()) {
+                    checkAlert.classList.remove('hidden');
+                } else {
+                    checkAlert.classList.add('hidden');
+                }
+
+                const history = this.chess.history({ verbose: true });
+                document.getElementById('move-count').textContent = `${history.length} moves`;
+                const historyContainer = document.getElementById('move-history');
+
+                if (history.length === 0) {
+                    historyContainer.innerHTML = `<div class="text-slate-500 italic text-center py-6">Game ready. Click pieces to move!</div>`;
+                } else {
+                    let html = '';
+                    for (let i = 0; i < history.length; i += 2) {
+                        const moveNum = Math.floor(i / 2) + 1;
+                        const whiteMove = history[i].san;
+                        const blackMove = history[i + 1] ? history[i + 1].san : '';
+                        html += `
+                            <div class="flex items-center justify-between py-1 px-2 rounded hover:bg-slate-800/60 transition">
+                                <span class="text-slate-500 w-8">${moveNum}.</span>
+                                <span class="text-amber-200 font-bold w-24">${whiteMove}</span>
+                                <span class="text-slate-300 font-bold w-24">${blackMove}</span>
+                            </div>
+                        `;
+                    }
+                    historyContainer.innerHTML = html;
+                    historyContainer.scrollTop = historyContainer.scrollHeight;
+                }
+
+                // Captured Pieces & Material Advantage Tally
+                const capturedWhite = [];
+                const capturedBlack = [];
+                const initialPieces = { p: 8, r: 2, n: 2, b: 2, q: 1 };
+                const currentCountsW = { p: 0, r: 0, n: 0, b: 0, q: 0 };
+                const currentCountsB = { p: 0, r: 0, n: 0, b: 0, q: 0 };
+                const pieceValues = { p: 1, n: 3, b: 3, r: 5, q: 9 };
+                let scoreW = 0, scoreB = 0;
+
+                const board = this.chess.board();
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        const p = board[r][c];
+                        if (p && p.type !== 'k') {
+                            if (p.color === 'w') currentCountsW[p.type]++;
+                            if (p.color === 'b') currentCountsB[p.type]++;
+                        }
                     }
                 }
-            });
 
-            checkCollisions();
+                const pieceIcons = { p: 'fa-chess-pawn', r: 'fa-chess-rook', n: 'fa-chess-knight', b: 'fa-chess-bishop', q: 'fa-chess-queen' };
 
-            animationId = requestAnimationFrame(gameLoop);
+                for (let type in initialPieces) {
+                    const diffW = initialPieces[type] - currentCountsW[type];
+                    for (let i = 0; i < diffW; i++) {
+                        capturedWhite.push(`<i class="fa-solid ${pieceIcons[type]}"></i>`);
+                        scoreB += pieceValues[type];
+                    }
+                    const diffB = initialPieces[type] - currentCountsB[type];
+                    for (let i = 0; i < diffB; i++) {
+                        capturedBlack.push(`<i class="fa-solid ${pieceIcons[type]}"></i>`);
+                        scoreW += pieceValues[type];
+                    }
+                }
+
+                document.getElementById('captured-white').innerHTML = capturedWhite.join(' ') || '<span class="text-slate-600">-</span>';
+                document.getElementById('captured-black').innerHTML = capturedBlack.join(' ') || '<span class="text-slate-600">-</span>';
+
+                const advW = scoreW - scoreB;
+                const advB = scoreB - scoreW;
+                document.getElementById('advantage-white').textContent = advW > 0 ? `+${advW}` : '';
+                document.getElementById('advantage-black').textContent = advB > 0 ? `+${advB}` : '';
+            }
+
+            showGameOverModal() {
+                const modal = document.getElementById('game-over-modal');
+                const title = document.getElementById('game-over-title');
+                const message = document.getElementById('game-over-message');
+
+                if (this.chess.in_checkmate()) {
+                    const winner = this.chess.turn() === 'w' ? 'Black' : 'White';
+                    title.textContent = "Checkmate!";
+                    message.textContent = `${winner} wins the match by checkmate.`;
+                } else if (this.chess.in_draw()) {
+                    title.textContent = "Draw Game";
+                    message.textContent = "The game ended in a draw.";
+                } else if (this.chess.in_stalemate()) {
+                    title.textContent = "Stalemate";
+                    message.textContent = "The game ended in a stalemate.";
+                }
+                modal.classList.remove('hidden');
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                this.controls.update();
+                this.renderer.render(this.scene, this.camera);
+            }
         }
 
-        // Keyboard Input
-        window.addEventListener('keydown', (e) => {
-            if (keys.hasOwnProperty(e.key)) keys[e.key] = true;
+        // Initialize App on DOM Ready
+        window.addEventListener('DOMContentLoaded', () => {
+            window.gameApp = new Chess3DApp();
+            window.gameApp.animate();
         });
-
-        window.addEventListener('keyup', (e) => {
-            if (keys.hasOwnProperty(e.key)) keys[e.key] = false;
-        });
-
-        // Touch & Mouse Input (maps to targetX)
-        function handleMoveInput(e) {
-            e.preventDefault(); // Prevent scrolling on touch
-            if (!gameActive) return;
-            
-            let clientX;
-            if (e.touches && e.touches.length > 0) {
-                clientX = e.touches[0].clientX;
-            } else {
-                clientX = e.clientX;
-            }
-            
-            // Adjust to canvas bounds
-            const rect = canvas.getBoundingClientRect();
-            targetX = clientX - rect.left;
-        }
-
-        function endMoveInput() {
-            targetX = null;
-        }
-
-        canvas.addEventListener('mousemove', handleMoveInput);
-        canvas.addEventListener('touchmove', handleMoveInput, { passive: false });
-        canvas.addEventListener('touchstart', handleMoveInput, { passive: false });
-        
-        canvas.addEventListener('mouseleave', endMoveInput);
-        canvas.addEventListener('touchend', endMoveInput);
-        canvas.addEventListener('touchcancel', endMoveInput);
-
-        // Game State Management
-        function initGame() {
-            player = new Player();
-            projectiles = [];
-            enemies = [];
-            particles = [];
-            score = 0;
-            frameCount = 0;
-            targetX = null;
-            updateScoreDisplay();
-            initStars();
-            
-            // Ensure audio context is resumed on user interaction
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-        }
-
-        function startGame() {
-            initGame();
-            startScreen.classList.add('hidden');
-            gameOverScreen.classList.add('hidden');
-            scoreElement.parentElement.classList.remove('hidden');
-            gameActive = true;
-            gameLoop();
-        }
-
-        function handleGameOver() {
-            gameActive = false;
-            cancelAnimationFrame(animationId);
-            createExplosion(player.x, player.y, player.color, 50); // Big explosion for player
-            
-            // Render one last frame to show player explosion
-            ctx.fillStyle = 'rgba(5, 5, 16, 0.4)';
-            ctx.fillRect(0, 0, w, h);
-            stars.forEach(s => s.draw());
-            particles.forEach(p => { p.update(); p.draw(); }); // Update particles once more
-            
-            setTimeout(() => {
-                finalScoreElement.innerText = score;
-                scoreElement.parentElement.classList.add('hidden');
-                gameOverScreen.classList.remove('hidden');
-            }, 500); // Short delay before showing screen
-        }
-
-        // Button Listeners
-        startBtn.addEventListener('click', startGame);
-        restartBtn.addEventListener('click', startGame);
-
-        // Initial render for background behind start screen
-        initStars();
-        function drawInitialBackground() {
-            ctx.fillStyle = '#050510';
-            ctx.fillRect(0, 0, w, h);
-            stars.forEach(star => {
-                star.update();
-                star.draw();
-            });
-            if (!gameActive) {
-                requestAnimationFrame(drawInitialBackground);
-            }
-        }
-        drawInitialBackground();
-
     </script>
 </body>
 </html>
