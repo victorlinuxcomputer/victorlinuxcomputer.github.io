@@ -1124,6 +1124,13 @@
             }
 
             startNewConfiguredGame() {
+                // Enforce Turnstile CAPTCHA completion
+                const turnstileResponse = document.querySelector('[name="cf-turnstile-response"]');
+                if (turnstileResponse && !turnstileResponse.value) {
+                    alert('Please complete the CAPTCHA challenge before starting the match.');
+                    return;
+                }
+
                 this.gameMode = this.setupMode;
                 this.playerColor = this.setupColor;
                 this.difficulty = parseInt(document.getElementById('setup-difficulty').value);
