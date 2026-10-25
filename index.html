@@ -16,6 +16,8 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <!-- Chess.js v0.10.3 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <!-- Cloudflare Turnstile API Script -->
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -235,6 +237,11 @@
                         <option value="14">Master (Depth 14)</option>
                         <option value="18">Grandmaster (Depth 18)</option>
                     </select>
+                </div>
+
+                <!-- Cloudflare Turnstile Widget -->
+                <div class="pt-2 flex justify-center">
+                    <div class="cf-turnstile" data-sitekey="0x4AAAAAAFkpm98epX_sl9o8"></div>
                 </div>
             </div>
 
